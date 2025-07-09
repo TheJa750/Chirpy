@@ -193,9 +193,21 @@ func (a *apiConfig) updateUserHandler(w http.ResponseWriter, req *http.Request) 
 }
 
 func (a *apiConfig) upgradeUserHandler(w http.ResponseWriter, req *http.Request) {
+	key, err := auth.GetAPIKey(req.Header)
+	if err != nil {
+		log.Printf("Error getting API key: %s", err)
+		http.Error(w, "Unauthorized", http.StatusUnauthorized)
+		return
+	}
+	if key != a.PolkaKey {
+		log.Printf("Invalid API key: %s", key)
+		http.Error(w, "Unauthorized", http.StatusUnauthorized)
+		return
+	}
+
 	var event PolkaEvent
 	decoder := json.NewDecoder(req.Body)
-	err := decoder.Decode(&event)
+	err = decoder.Decode(&event)
 	if err != nil {
 		log.Printf("Error decoding Polka event: %s", err)
 		http.Error(w, "Invalid request", http.StatusBadRequest)

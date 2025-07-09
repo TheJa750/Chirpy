@@ -32,6 +32,7 @@ func main() {
 		fileserverHits: atomic.Int32{},
 		dbQueries:      database.New(db),
 		JWTSecret:      os.Getenv("SECRET"),
+		PolkaKey:       os.Getenv("POLKA_KEY"),
 	}
 
 	fileHandler := http.StripPrefix("/app/", http.FileServer(http.Dir(".")))
