@@ -50,6 +50,7 @@ func main() {
 	mux.HandleFunc("POST /api/login", cfg.loginUserHandler)
 	mux.HandleFunc("POST /api/refresh", cfg.refreshHandler)
 	mux.HandleFunc("POST /api/revoke", cfg.revokeRefreshTokenHandler)
+	mux.HandleFunc("PUT /api/users", cfg.updateUserHandler)
 
 	//dev handlers
 	mux.HandleFunc("POST /admin/reset", cfg.resetUsersHandler)
