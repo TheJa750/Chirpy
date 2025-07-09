@@ -33,6 +33,7 @@ type User struct {
 	CreatedAt time.Time `json:"created_at"`
 	UpdatedAt time.Time `json:"updated_at"`
 	Email     string    `json:"email"`
+	HashedPwd string    `json:"hashed_password"`
 }
 
 type chirpRequest struct {
@@ -46,4 +47,9 @@ type Chirp struct {
 	CreatedAt time.Time `json:"created_at"`
 	UpdatedAt time.Time `json:"updated_at"`
 	UserID    uuid.UUID `json:"user_id"`
+}
+
+type UserRequest struct {
+	Email    string `json:"email"`
+	Password string `json:"password"`
 }

@@ -7,6 +7,7 @@ import (
 	"net/http"
 	"strings"
 
+	"github.com/TheJa750/Chirpy/internal/auth"
 	"github.com/TheJa750/Chirpy/internal/database"
 	"github.com/google/uuid"
 )
@@ -40,11 +41,7 @@ func cleanChirpBody(s string) CleanedChirpBody {
 }
 
 func (a *apiConfig) createUserHandler(w http.ResponseWriter, req *http.Request) {
-	type userRequest struct {
-		Email string `json:"email"`
-	}
-
-	var userReq userRequest
+	var userReq UserRequest
 	decoder := json.NewDecoder(req.Body)
 	err := decoder.Decode(&userReq)
 	if err != nil {
@@ -58,7 +55,21 @@ func (a *apiConfig) createUserHandler(w http.ResponseWriter, req *http.Request) 
 		return
 	}
 
-	user, err := a.dbQueries.CreateUser(req.Context(), userReq.Email)
+	if userReq.Password == "" {
+		http.Error(w, "Password is required", http.StatusBadRequest)
+		return
+	}
+
+	hashedPassword, err := auth.HashPassword(userReq.Password)
+	if err != nil {
+		log.Printf("Error hashing password: %s", err)
+		http.Error(w, "Internal server error", http.StatusInternalServerError)
+		return
+	}
+
+	user, err := a.dbQueries.CreateUser(req.Context(), database.CreateUserParams{
+		Email:          userReq.Email,
+		HashedPassword: hashedPassword})
 	if err != nil {
 		log.Printf("Error creating user: %s", err)
 		http.Error(w, "Internal server error", http.StatusInternalServerError)
