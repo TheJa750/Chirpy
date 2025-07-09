@@ -11,6 +11,7 @@ import (
 type apiConfig struct {
 	fileserverHits atomic.Int32
 	dbQueries      *database.Queries
+	JWTSecret      string
 }
 
 const adminMetrics = `<html>
@@ -33,11 +34,11 @@ type User struct {
 	CreatedAt time.Time `json:"created_at"`
 	UpdatedAt time.Time `json:"updated_at"`
 	Email     string    `json:"email"`
+	Token     string    `json:"token"`
 }
 
 type chirpRequest struct {
-	Body   string    `json:"body"`
-	UserID uuid.UUID `json:"user_id"`
+	Body string `json:"body"`
 }
 
 type Chirp struct {
@@ -49,6 +50,7 @@ type Chirp struct {
 }
 
 type UserRequest struct {
-	Email    string `json:"email"`
-	Password string `json:"password"`
+	Email    string        `json:"email"`
+	Password string        `json:"password"`
+	Duration time.Duration `json:"expires_in_seconds"`
 }

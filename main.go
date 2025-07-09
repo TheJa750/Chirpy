@@ -31,6 +31,7 @@ func main() {
 	cfg := apiConfig{
 		fileserverHits: atomic.Int32{},
 		dbQueries:      database.New(db),
+		JWTSecret:      os.Getenv("SECRET"),
 	}
 
 	fileHandler := http.StripPrefix("/app/", http.FileServer(http.Dir(".")))

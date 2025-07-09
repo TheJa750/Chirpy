@@ -6,6 +6,7 @@ import (
 	"log"
 	"net/http"
 	"strings"
+	"time"
 
 	"github.com/TheJa750/Chirpy/internal/auth"
 	"github.com/TheJa750/Chirpy/internal/database"
@@ -98,6 +99,19 @@ func (a *apiConfig) postChirpHandler(w http.ResponseWriter, req *http.Request) {
 		return
 	}
 
+	token, err := auth.GetBearerToken(req.Header)
+	if err != nil {
+		log.Printf("Error getting bearer token: %s", err)
+		http.Error(w, "Unauthorized", http.StatusUnauthorized)
+		return
+	}
+	userID, err := auth.ValidateJWT(token, a.JWTSecret)
+	if err != nil {
+		log.Printf("Error validating JWT: %s", err)
+		http.Error(w, "Unauthorized", http.StatusUnauthorized)
+		return
+	}
+
 	cleanedChirp, errMsg := validateChirp(chirpReq.Body)
 	if errMsg.Message != "" {
 		log.Printf("Chirp validation error: %s", errMsg.Message)
@@ -107,7 +121,7 @@ func (a *apiConfig) postChirpHandler(w http.ResponseWriter, req *http.Request) {
 
 	chirp, err := a.dbQueries.CreateChirp(req.Context(), database.CreateChirpParams{
 		Body:   cleanedChirp.Body,
-		UserID: chirpReq.UserID,
+		UserID: userID,
 	})
 	if err != nil {
 		log.Printf("Error creating chirp: %s", err)
@@ -210,11 +224,22 @@ func (a *apiConfig) loginUserHandler(w http.ResponseWriter, req *http.Request) {
 		return
 	}
 
+	if userReq.Duration == 0 || userReq.Duration > 3600 {
+		userReq.Duration = 3600 // Default to 1 hour if not specified or too long
+	}
+	token, err := auth.MakeJWT(user.ID, a.JWTSecret, userReq.Duration*time.Second)
+	if err != nil {
+		log.Printf("Error creating JWT: %s", err)
+		http.Error(w, "Internal server error", http.StatusInternalServerError)
+		return
+	}
+
 	jsonUser := User{
 		ID:        user.ID,
 		CreatedAt: user.CreatedAt.Time,
 		UpdatedAt: user.UpdatedAt.Time,
 		Email:     user.Email,
+		Token:     token,
 	}
 
 	w.Header().Set("Content-Type", "application/json")
