@@ -4,6 +4,7 @@ import (
 	"encoding/json"
 	"log"
 	"net/http"
+	"sort"
 	"strings"
 
 	"github.com/TheJa750/Chirpy/internal/auth"
@@ -93,11 +94,34 @@ func (a *apiConfig) postChirpHandler(w http.ResponseWriter, req *http.Request) {
 }
 
 func (a *apiConfig) getChirpsHandler(w http.ResponseWriter, req *http.Request) {
-	chirps, err := a.dbQueries.GetChirps(req.Context())
-	if err != nil {
-		log.Printf("Error getting chirps: %s", err)
-		http.Error(w, "Internal server error", http.StatusInternalServerError)
-		return
+	userIDStr := req.URL.Query().Get("author_id")
+	sortOrder := req.URL.Query().Get("sort")
+	if sortOrder == "" {
+		sortOrder = "asc"
+	}
+	var chirps []database.Chirp
+	var err error
+	if userIDStr == "" {
+		chirps, err = a.dbQueries.GetChirps(req.Context())
+		if err != nil {
+			log.Printf("Error getting chirps: %s", err)
+			http.Error(w, "Internal server error", http.StatusInternalServerError)
+			return
+		}
+	} else {
+		userID, err := uuid.Parse(userIDStr)
+		if err != nil {
+			log.Printf("Invalid user ID: %s", err)
+			http.Error(w, "Invalid user ID", http.StatusBadRequest)
+			return
+		}
+
+		chirps, err = a.dbQueries.GetChirpsByUserID(req.Context(), userID)
+		if err != nil {
+			log.Printf("Error getting chirps by user ID: %s", err)
+			http.Error(w, "Internal server error", http.StatusInternalServerError)
+			return
+		}
 	}
 
 	jsonChirps := make([]Chirp, len(chirps))
@@ -109,6 +133,12 @@ func (a *apiConfig) getChirpsHandler(w http.ResponseWriter, req *http.Request) {
 			UpdatedAt: chirp.UpdatedAt.Time,
 			UserID:    chirp.UserID,
 		}
+	}
+
+	if sortOrder == "desc" {
+		sort.Slice(jsonChirps, func(i, j int) bool {
+			return jsonChirps[i].CreatedAt.After(jsonChirps[j].CreatedAt)
+		})
 	}
 
 	w.Header().Set("Content-Type", "application/json")
