@@ -5,3 +5,6 @@ RETURNING *;
 
 -- name: ResetUsers :exec
 TRUNCATE TABLE users CASCADE;
+
+-- name: GetUserByEmail :one
+SELECT * FROM users WHERE email = $1;
