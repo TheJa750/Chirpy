@@ -6,7 +6,6 @@ import (
 	"log"
 	"net/http"
 	"strings"
-	"time"
 
 	"github.com/TheJa750/Chirpy/internal/auth"
 	"github.com/TheJa750/Chirpy/internal/database"
@@ -39,54 +38,6 @@ func cleanChirpBody(s string) CleanedChirpBody {
 	cleanBody := strings.Join(words, " ")
 
 	return CleanedChirpBody{cleanBody}
-}
-
-func (a *apiConfig) createUserHandler(w http.ResponseWriter, req *http.Request) {
-	var userReq UserRequest
-	decoder := json.NewDecoder(req.Body)
-	err := decoder.Decode(&userReq)
-	if err != nil {
-		log.Printf("Error decoding user request: %s", err)
-		http.Error(w, "Invalid request", http.StatusBadRequest)
-		return
-	}
-
-	if userReq.Email == "" {
-		http.Error(w, "Email is required", http.StatusBadRequest)
-		return
-	}
-
-	if userReq.Password == "" {
-		http.Error(w, "Password is required", http.StatusBadRequest)
-		return
-	}
-
-	hashedPassword, err := auth.HashPassword(userReq.Password)
-	if err != nil {
-		log.Printf("Error hashing password: %s", err)
-		http.Error(w, "Internal server error", http.StatusInternalServerError)
-		return
-	}
-
-	user, err := a.dbQueries.CreateUser(req.Context(), database.CreateUserParams{
-		Email:          userReq.Email,
-		HashedPassword: hashedPassword})
-	if err != nil {
-		log.Printf("Error creating user: %s", err)
-		http.Error(w, "Internal server error", http.StatusInternalServerError)
-		return
-	}
-
-	jsonUser := User{
-		ID:        user.ID,
-		CreatedAt: user.CreatedAt.Time,
-		UpdatedAt: user.UpdatedAt.Time,
-		Email:     user.Email,
-	}
-
-	w.Header().Set("Content-Type", "application/json")
-	w.WriteHeader(http.StatusCreated)
-	json.NewEncoder(w).Encode(jsonUser)
 }
 
 func (a *apiConfig) postChirpHandler(w http.ResponseWriter, req *http.Request) {
@@ -193,56 +144,4 @@ func (a *apiConfig) getChirpByIDHandler(w http.ResponseWriter, req *http.Request
 	w.Header().Set("Content-Type", "application/json")
 	w.WriteHeader(http.StatusOK)
 	json.NewEncoder(w).Encode(jsonChirp)
-}
-
-func (a *apiConfig) loginUserHandler(w http.ResponseWriter, req *http.Request) {
-	var userReq UserRequest
-	decoder := json.NewDecoder(req.Body)
-	err := decoder.Decode(&userReq)
-	if err != nil {
-		log.Printf("Error decoding user request: %s", err)
-		http.Error(w, "Invalid request", http.StatusBadRequest)
-		return
-	}
-
-	if userReq.Email == "" || userReq.Password == "" {
-		http.Error(w, "Email and password are required", http.StatusBadRequest)
-		return
-	}
-
-	user, err := a.dbQueries.GetUserByEmail(req.Context(), userReq.Email)
-	if err != nil {
-		log.Printf("Error getting user by email: %s", err)
-		http.Error(w, "Invalid email or password", http.StatusUnauthorized)
-		return
-	}
-
-	err = auth.CheckPasswordHash(user.HashedPassword, userReq.Password)
-	if err != nil {
-		log.Printf("Password check failed: %s", err)
-		http.Error(w, "Invalid email or password", http.StatusUnauthorized)
-		return
-	}
-
-	if userReq.Duration == 0 || userReq.Duration > 3600 {
-		userReq.Duration = 3600 // Default to 1 hour if not specified or too long
-	}
-	token, err := auth.MakeJWT(user.ID, a.JWTSecret, userReq.Duration*time.Second)
-	if err != nil {
-		log.Printf("Error creating JWT: %s", err)
-		http.Error(w, "Internal server error", http.StatusInternalServerError)
-		return
-	}
-
-	jsonUser := User{
-		ID:        user.ID,
-		CreatedAt: user.CreatedAt.Time,
-		UpdatedAt: user.UpdatedAt.Time,
-		Email:     user.Email,
-		Token:     token,
-	}
-
-	w.Header().Set("Content-Type", "application/json")
-	w.WriteHeader(http.StatusOK)
-	json.NewEncoder(w).Encode(jsonUser)
 }
