@@ -1,13 +1,16 @@
 package main
 
 import (
-	"fmt"
-	"net/http"
 	"sync/atomic"
+	"time"
+
+	"github.com/TheJa750/Chirpy/internal/database"
+	"github.com/google/uuid"
 )
 
 type apiConfig struct {
 	fileserverHits atomic.Int32
+	dbQueries      *database.Queries
 }
 
 const adminMetrics = `<html>
@@ -17,31 +20,30 @@ const adminMetrics = `<html>
   </body>
 </html>`
 
-func (a *apiConfig) middlewareMetricsInc(next http.Handler) http.Handler {
-	return http.HandlerFunc(func(w http.ResponseWriter, req *http.Request) {
-		a.fileserverHits.Add(1)
-
-		next.ServeHTTP(w, req)
-	})
-
-}
-
-func (a *apiConfig) getFileserverHitsHandler(w http.ResponseWriter, req *http.Request) {
-	w.Header().Set("Content-Type", "text/html")
-	w.WriteHeader(http.StatusOK)
-	body := fmt.Sprintf(adminMetrics, a.fileserverHits.Load())
-	w.Write([]byte(body))
-}
-
-func (a *apiConfig) resetFileserverHitsHandler(w http.ResponseWriter, req *http.Request) {
-	a.fileserverHits = atomic.Int32{}
-	w.WriteHeader(http.StatusOK)
-}
-
 type JsonError struct {
 	Message string `json:"error"`
 }
 
 type CleanedChirpBody struct {
 	Body string `json:"cleaned_body"`
+}
+
+type User struct {
+	ID        uuid.UUID `json:"id"`
+	CreatedAt time.Time `json:"created_at"`
+	UpdatedAt time.Time `json:"updated_at"`
+	Email     string    `json:"email"`
+}
+
+type chirpRequest struct {
+	Body   string    `json:"body"`
+	UserID uuid.UUID `json:"user_id"`
+}
+
+type Chirp struct {
+	ID        uuid.UUID `json:"id"`
+	Body      string    `json:"body"`
+	CreatedAt time.Time `json:"created_at"`
+	UpdatedAt time.Time `json:"updated_at"`
+	UserID    uuid.UUID `json:"user_id"`
 }

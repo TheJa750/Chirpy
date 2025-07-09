@@ -1,14 +1,26 @@
 package main
 
 import (
-	"encoding/json"
+	"database/sql"
 	"log"
 	"net/http"
-	"strings"
+	"os"
 	"sync/atomic"
+
+	"github.com/TheJa750/Chirpy/internal/database"
+	"github.com/joho/godotenv"
+	_ "github.com/lib/pq" // Importing pq for PostgreSQL driver
 )
 
 func main() {
+	godotenv.Load()
+	dbURL := os.Getenv("DB_URL")
+
+	db, err := sql.Open("postgres", dbURL)
+	if err != nil {
+		log.Fatalf("Error connecting to the database: %s", err)
+	}
+
 	mux := http.NewServeMux()
 
 	svr := http.Server{
@@ -18,88 +30,26 @@ func main() {
 
 	cfg := apiConfig{
 		fileserverHits: atomic.Int32{},
+		dbQueries:      database.New(db),
 	}
-
-	mux.HandleFunc("GET /api/healthz", healthzHandler)
 
 	fileHandler := http.StripPrefix("/app/", http.FileServer(http.Dir(".")))
 
+	//metrics handlers
+	mux.HandleFunc("GET /api/healthz", healthzHandler)
 	mux.Handle("/app/", cfg.middlewareMetricsInc(fileHandler))
-
 	mux.HandleFunc("GET /admin/metrics", cfg.getFileserverHitsHandler)
+	//mux.HandleFunc("POST /admin/reset", cfg.resetFileserverHitsHandler)
 
-	mux.HandleFunc("POST /admin/reset", cfg.resetFileserverHitsHandler)
+	//api handlers
+	mux.HandleFunc("POST /api/users", cfg.createUserHandler)
+	mux.HandleFunc("POST /api/chirps", cfg.postChirpHandler)
+	mux.HandleFunc("GET /api/chirps", cfg.getChirpsHandler)
+	mux.HandleFunc("GET /api/chirps/{chirpID}", cfg.getChirpByIDHandler)
 
-	mux.HandleFunc("POST /api/validate_chirp", validateChirpHandler)
+	//dev handlers
+	mux.HandleFunc("POST /admin/reset", cfg.resetUsersHandler)
 
 	svr.ListenAndServe()
 
-}
-
-func healthzHandler(w http.ResponseWriter, req *http.Request) {
-	w.Header().Set("Content-Type", "text/plain; charset=utf-8")
-	w.WriteHeader(http.StatusOK)
-	w.Write([]byte("OK"))
-}
-
-func validateChirpHandler(w http.ResponseWriter, req *http.Request) {
-	type parameters struct {
-		Body string `json:"body"`
-	}
-
-	decoder := json.NewDecoder(req.Body)
-	params := parameters{}
-	err := decoder.Decode(&params)
-	if err != nil {
-		log.Printf("Error decoding parameters: %s", err)
-		msg := JsonError{
-			Message: "Something went wrong",
-		}
-		dat, err := json.Marshal(msg)
-		if err != nil {
-			log.Printf("Error marshalling JSON: %s", err)
-		}
-		w.Header().Set("Content-Type", "application/json")
-		w.WriteHeader(500)
-		w.Write(dat)
-		return
-	}
-
-	if len(params.Body) > 140 {
-		msg := JsonError{
-			Message: "Chirp is too long",
-		}
-		dat, err := json.Marshal(msg)
-		if err != nil {
-			log.Printf("Error marshalling JSON: %s", err)
-		}
-		w.Header().Set("Content-Type", "application/json")
-		w.WriteHeader(400)
-		w.Write(dat)
-		return
-	}
-
-	msg := cleanChirpBody(params.Body)
-	dat, err := json.Marshal(msg)
-	if err != nil {
-		log.Printf("Error marshalling JSON: %s", err)
-	}
-	w.Header().Set("Content-Type", "application/json")
-	w.WriteHeader(200)
-	w.Write(dat)
-}
-
-func cleanChirpBody(s string) CleanedChirpBody {
-	words := strings.Fields(s)
-
-	for i, word := range words {
-		lower := strings.ToLower(word)
-		if lower == "kerfuffle" || lower == "sharbert" || lower == "fornax" {
-			words[i] = "****"
-		}
-	}
-
-	cleanBody := strings.Join(words, " ")
-
-	return CleanedChirpBody{cleanBody}
 }
