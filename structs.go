@@ -36,6 +36,7 @@ type User struct {
 	Email        string    `json:"email"`
 	AccessToken  string    `json:"token"`
 	RefreshToken string    `json:"refresh_token"`
+	ChirpyRed    bool      `json:"is_chirpy_red"`
 }
 
 type chirpRequest struct {
@@ -53,4 +54,11 @@ type Chirp struct {
 type UserRequest struct {
 	Email    string `json:"email"`
 	Password string `json:"password"`
+}
+
+type PolkaEvent struct {
+	Event string `json:"event"`
+	Data  struct {
+		UserID uuid.UUID `json:"user_id"`
+	} `json:"data"`
 }

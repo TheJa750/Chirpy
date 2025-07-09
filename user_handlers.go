@@ -51,6 +51,7 @@ func (a *apiConfig) createUserHandler(w http.ResponseWriter, req *http.Request) 
 		CreatedAt: user.CreatedAt.Time,
 		UpdatedAt: user.UpdatedAt.Time,
 		Email:     user.Email,
+		ChirpyRed: user.IsChirpyRed,
 	}
 
 	w.Header().Set("Content-Type", "application/json")
@@ -118,6 +119,7 @@ func (a *apiConfig) loginUserHandler(w http.ResponseWriter, req *http.Request) {
 		Email:        user.Email,
 		AccessToken:  access_token,
 		RefreshToken: rtString,
+		ChirpyRed:    user.IsChirpyRed,
 	}
 
 	w.Header().Set("Content-Type", "application/json")
@@ -182,9 +184,34 @@ func (a *apiConfig) updateUserHandler(w http.ResponseWriter, req *http.Request) 
 		CreatedAt: user.CreatedAt.Time,
 		UpdatedAt: user.UpdatedAt.Time,
 		Email:     user.Email,
+		ChirpyRed: user.IsChirpyRed,
 	}
 
 	w.Header().Set("Content-Type", "application/json")
 	w.WriteHeader(http.StatusOK)
 	json.NewEncoder(w).Encode(jsonUser)
+}
+
+func (a *apiConfig) upgradeUserHandler(w http.ResponseWriter, req *http.Request) {
+	var event PolkaEvent
+	decoder := json.NewDecoder(req.Body)
+	err := decoder.Decode(&event)
+	if err != nil {
+		log.Printf("Error decoding Polka event: %s", err)
+		http.Error(w, "Invalid request", http.StatusBadRequest)
+		return
+	}
+
+	if event.Event != "user.upgraded" {
+		w.WriteHeader(http.StatusNoContent)
+		return
+	}
+
+	_, err = a.dbQueries.UpgradeUserToChirpyRed(req.Context(), event.Data.UserID)
+	if err != nil {
+		log.Printf("Error upgrading user to Chirpy Red: %s", err)
+		http.Error(w, "User not found", http.StatusNotFound)
+		return
+	}
+	w.WriteHeader(http.StatusNoContent)
 }

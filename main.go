@@ -53,6 +53,9 @@ func main() {
 	mux.HandleFunc("PUT /api/users", cfg.updateUserHandler)
 	mux.HandleFunc("DELETE /api/chirps/{chirpID}", cfg.deleteChirpHandler)
 
+	//webhook handlers
+	mux.HandleFunc("POST /api/polka/webhooks", cfg.upgradeUserHandler)
+
 	//dev handlers
 	mux.HandleFunc("POST /admin/reset", cfg.resetUsersHandler)
 
