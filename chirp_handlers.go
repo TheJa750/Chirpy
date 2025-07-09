@@ -2,7 +2,6 @@ package main
 
 import (
 	"encoding/json"
-	"fmt"
 	"log"
 	"net/http"
 	"strings"
@@ -119,7 +118,7 @@ func (a *apiConfig) getChirpsHandler(w http.ResponseWriter, req *http.Request) {
 
 func (a *apiConfig) getChirpByIDHandler(w http.ResponseWriter, req *http.Request) {
 	chirpIDstr := req.PathValue("chirpID")
-	fmt.Println(chirpIDstr)
+
 	chirpID, err := uuid.Parse(chirpIDstr)
 	if err != nil {
 		log.Printf("Invalid chirp ID: %s", err)
@@ -144,4 +143,50 @@ func (a *apiConfig) getChirpByIDHandler(w http.ResponseWriter, req *http.Request
 	w.Header().Set("Content-Type", "application/json")
 	w.WriteHeader(http.StatusOK)
 	json.NewEncoder(w).Encode(jsonChirp)
+}
+
+func (a *apiConfig) deleteChirpHandler(w http.ResponseWriter, req *http.Request) {
+	chirpIDstr := req.PathValue("chirpID")
+	chirpID, err := uuid.Parse(chirpIDstr)
+	if err != nil {
+		log.Printf("Invalid chirp ID: %s", err)
+		http.Error(w, "Invalid chirp ID", http.StatusBadRequest)
+		return
+	}
+
+	token, err := auth.GetBearerToken(req.Header)
+	if err != nil {
+		log.Printf("Error getting bearer token: %s", err)
+		http.Error(w, "Unauthorized", http.StatusUnauthorized)
+		return
+	}
+
+	userID, err := auth.ValidateJWT(token, a.JWTSecret)
+	if err != nil {
+		log.Printf("Error validating JWT: %s", err)
+		http.Error(w, "Unauthorized", http.StatusUnauthorized)
+		return
+	}
+
+	chirp, err := a.dbQueries.GetChirpByID(req.Context(), chirpID)
+	if err != nil {
+		log.Printf("Error getting chirp by ID: %s", err)
+		http.Error(w, "Chirp not found", http.StatusNotFound)
+		return
+	}
+
+	if chirp.UserID != userID {
+		log.Printf("Unauthorized attempt to delete chirp by user %s", userID)
+		http.Error(w, "Forbidden", http.StatusForbidden)
+		return
+	}
+
+	err = a.dbQueries.DeleteChirpByID(req.Context(), chirpID)
+	if err != nil {
+		log.Printf("Error deleting chirp: %s", err)
+		http.Error(w, "Chirp not found", http.StatusNotFound)
+		return
+	}
+
+	w.WriteHeader(http.StatusNoContent)
 }

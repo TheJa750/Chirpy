@@ -51,6 +51,7 @@ func main() {
 	mux.HandleFunc("POST /api/refresh", cfg.refreshHandler)
 	mux.HandleFunc("POST /api/revoke", cfg.revokeRefreshTokenHandler)
 	mux.HandleFunc("PUT /api/users", cfg.updateUserHandler)
+	mux.HandleFunc("DELETE /api/chirps/{chirpID}", cfg.deleteChirpHandler)
 
 	//dev handlers
 	mux.HandleFunc("POST /admin/reset", cfg.resetUsersHandler)
